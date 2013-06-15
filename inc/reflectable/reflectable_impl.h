@@ -29,7 +29,7 @@
 #include <memory>
 #include <stack>
 
-#include "reflection.h"
+#include "reflectable.h"
 
 #define TYPEOF(x) BOOST_PP_TUPLE_ELEM(0, x)
 

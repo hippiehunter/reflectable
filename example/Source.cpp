@@ -1,5 +1,5 @@
-#include <reflectable\reflection_impl.h>
-#include <json\json_serialization.h>
+#include <reflectable/reflectable_impl.h>
+#include <json/json_serialization.h>
 
 #include <json/json_serialization.h>
 #include <json/rapidjson/writer.h>
