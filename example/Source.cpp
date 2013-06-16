@@ -59,19 +59,55 @@ REFLECTABLE(
   (std::string, after),
   (std::vector<thing>, children))
 
+struct inflatableCrap
+{
+  int theValue;
+  struct inflatable
+  {
+  public:
+    static int deflate(const inflatableCrap* crap) { return crap->theValue; }
+    static inflatableCrap* inflate(int theValue) { return new inflatableCrap { theValue }; }
+  };
+};
+
+struct somecrap
+{
+  ENABLE_REFLECTION
+  inflatableCrap* myInflator;
+};
+
+
+
+REFLECTABLE(
+  (somecrap)(),
+  (inflatableCrap*, myInflator))
+
 
 int main(int argc, char **argv) 
 {
+  std::string snarf("{\"myInflator\":5}");
     std::string bla("{\"id\":\"\",\"kind\":\"t1\",\"data\":{\"name\":\"t1_asdfg\",\"subreddit\":\"programming\",\"title\":\"some link\"}}");
     thing th;
+    somecrap crp;
+    somecrap crp2;
+    crp.myInflator = new inflatableCrap { 9 };
     th.kind = "t1";
 	thing::link lnk = { "t1_asdfg", "programming", "some link" };
     th.data = lnk; 
     rapidjson::FileStream s(stdout);
     rapidjson::Writer<rapidjson::FileStream> writer(s);
     Serialize(writer, th);
-    rapidjson::GenericStringStream<rapidjson::UTF8<>> inStream("{\"id\":\"\",\"kind\":\"t1\",\"data\":{\"name\":\"t1_asdfg\",\"subreddit\":\"programming\",\"title\":\"some link\"}}");
+    Serialize(writer, crp);
+    rapidjson::GenericStringStream<rapidjson::UTF8<>> inStream("{\"id\":\"\",\"kind\":\"t1\",\"data\":{\"name\":\"t1_asdfgg\",\"subreddit\":\"programming\",\"title\":\"some link\"}}");
     Deserialize(inStream, std::move(DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(th)));
+    
+    
+    rapidjson::GenericStringStream<rapidjson::UTF8<>> inStream2("{\"myInflator\":5}");
+    Deserialize(inStream2, std::move(DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(crp2)));
+    
+    Serialize(writer, crp2);
+    Serialize(writer, th);
+    
     std::cout << "Hello, world!" << std::endl;
     return 0;
 }

@@ -2,6 +2,7 @@
 #define JSON_SERIALIZATION_H
 
 #include <map>
+#include <type_traits>
 #include <vector>
 #include <string>
 #include <memory>
@@ -67,10 +68,26 @@ struct DeserializationReflectableVisitor
     type(const T& value, ReflectableObject& reflectable) : _value(value), _reflectable(reflectable) {}
 
     template<typename Tn>
-    void operator()(Tn ReflectableObject::* data) const { }
-    void operator()(T ReflectableObject::* data) const
+    auto impl(Tn ReflectableObject::* data, int) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), std::remove_pointer<Tn>::type::inflatable::inflate(std::declval<T>()),  void())
     {
+      _reflectable.*data = std::remove_pointer<Tn>::type::inflatable::inflate(_value);
+    }
+
+    template<typename Tn>
+    void impl(Tn ReflectableObject::* data, char) const
+    { 
+    }
+
+    template<typename Tn>
+    auto impl(Tn ReflectableObject::* data, int) const -> decltype(std::declval<typename std::enable_if<std::is_same<T, Tn>::value>::type>(), void())
+    { 
       _reflectable.*data = _value;
+    }
+    
+    template<typename Tn>
+    auto operator()(Tn ReflectableObject::* data) const -> decltype(std::declval<type<T,ReflectableObject>*>()->impl(data, 0))
+    {
+      impl(data, 0);
     }
 
   };
@@ -109,6 +126,12 @@ struct DeserializationObjectReflectableVisitor
     auto impl(Tn ReflObj::* data, int) const -> decltype(std::declval<typename ReflObj::reflectable>().json_tag_map, void())
     {
       boost::apply_visitor(ReflectableVariantVisitor(_value), _reflectable.*data);
+    }
+    
+    template<typename Tn>
+    auto impl(Tn ReflectableObject::* data, unsigned int) const -> decltype(std::declval<std::remove_pointer<Tn>::type::inflatable>(), void())
+    {
+      _value = DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(std::remove_pointer<Tn>::type::inflatable::inflate(_reflectable.*data));
     }
 
     template<typename Tn>
@@ -270,6 +293,28 @@ public:
   {
     _writer.String((_reflectable.*data).c_str(), (_reflectable.*data).size());
   }
+  
+  
+  void operator()(int data) const
+  {
+    _writer.Int(data);
+  }
+
+  void operator()(unsigned data) const
+  {
+    _writer.Uint(data);
+  }
+
+  void operator()(int64_t data) const
+  {
+    _writer.Int64(data);
+  }
+
+  void operator()(uint64_t data) const
+  {
+    _writer.Uint64(data);
+  }
+  
 
   template<typename Tn>
   auto impl(Tn ReflectableObject::* data, unsigned int) const -> decltype(std::declval<typename Tn::iterator>(), void())
@@ -281,6 +326,12 @@ public:
   auto impl(Tn ReflectableObject::* data, long) const -> decltype(std::declval<typename Tn::reflectable>(), void())
   {
     Serialize(_writer, (_reflectable.*data));
+  }
+  
+  template<typename Tn>
+  auto impl(Tn ReflectableObject::* data, int) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
+  {
+    this->operator()(std::remove_pointer<Tn>::type::inflatable::deflate(_reflectable.*data));
   }
 
   class VariantSerializationVisitor : public boost::static_visitor<>
@@ -358,6 +409,12 @@ public:
 
   template<typename Tn>
   auto impl(Tn& data, int) const -> decltype(std::declval<typename Tn::reflectable>(), void())
+  {
+    Serialize(_writer, data);
+  }
+  
+  template<typename Tn>
+  auto impl(Tn& data, unsigned int) const -> decltype(std::declval<std::remove_pointer<Tn>::inflatable>(), void())
   {
     Serialize(_writer, data);
   }
