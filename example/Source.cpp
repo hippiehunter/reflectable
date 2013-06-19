@@ -17,7 +17,7 @@ struct thing
   struct link
   {
     ENABLE_REFLECTION
-    std::string name;
+    std::string _name;
     std::string subreddit;
     std::string title;
   };
@@ -31,7 +31,7 @@ struct thing
   };
   
   ENABLE_REFLECTION
-  std::string id;
+  std::string _id;
   std::string kind;
   boost::variant<link, listing> data;
 };
@@ -42,13 +42,13 @@ REFLECTABLE(
   ((decltype(thing::data) thing::* json_tag_target))
   ((std::string json_tag_source))
   ((struct json_tagged {})),
-  (std::string, id),
+  (std::string, _id),
   (std::string, kind, (json_tag_map = {{"t1", link()}, {"listing", listing()}};json_tag_source = "kind")),
   (std::vector<thing>, data, (json_tag_target = &thing::data)))
 
 REFLECTABLE(
   (thing::link)(),
-  (std::string, name),
+  (std::string, _name),
   (std::string, subreddit),
   (std::string, title))
 
@@ -65,15 +65,15 @@ struct inflatableCrap
   struct inflatable
   {
   public:
-    static int deflate(const inflatableCrap* crap) { return crap->theValue; }
-    static inflatableCrap* inflate(int theValue) { return new inflatableCrap { theValue }; }
+    static int deflate(const inflatableCrap& crap) { return crap.theValue; }
+    static inflatableCrap inflate(int theValue) { return inflatableCrap { theValue }; }
   };
 };
 
 struct somecrap
 {
   ENABLE_REFLECTION
-  inflatableCrap* myInflator;
+  inflatableCrap myInflator;
 };
 
 
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     thing th;
     somecrap crp;
     somecrap crp2;
-    crp.myInflator = new inflatableCrap { 9 };
+    crp.myInflator = inflatableCrap { 9 };
     th.kind = "t1";
 	thing::link lnk = { "t1_asdfg", "programming", "some link" };
     th.data = lnk; 

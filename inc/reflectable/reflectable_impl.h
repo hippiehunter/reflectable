@@ -54,6 +54,11 @@ struct make_const<const M, T>
     typedef typename boost::add_const<T>::type type;
 };
 
+constexpr const char* strip_underscore(const char* str)
+{
+  return str[0] == '_' ? str + 1 : str;
+}
+
 #define CAT(x, y) CAT_I(x, y) 
 #define CAT_I(x, y) x ## y 
 
@@ -80,8 +85,8 @@ struct make_const<const M, T>
 
 #define REFLECT_EACH_3(r, data, i, x) BOOST_PP_COMMA_IF(i) decltype(&data::STRIP(x))
 
-#define REFLECT_EACH_4(r, data, i, x) noLookup.push_back(std::make_pair(BOOST_PP_STRINGIZE(STRIP(x)), data::reflectable::field_type_variant_t(&data::STRIP(x))));
-#define REFLECT_EACH_4a(r, data, i, x) map[BOOST_PP_STRINGIZE(STRIP(x))] = data::reflectable::field_type_variant_t(&data::STRIP(x)); 
+#define REFLECT_EACH_4(r, data, i, x) noLookup.push_back(std::make_pair(strip_underscore(BOOST_PP_STRINGIZE(STRIP(x))), data::reflectable::field_type_variant_t(&data::STRIP(x))));
+#define REFLECT_EACH_4a(r, data, i, x) map[strip_underscore(BOOST_PP_STRINGIZE(STRIP(x)))] = data::reflectable::field_type_variant_t(&data::STRIP(x)); 
 
 #define REFLECT_EACH_5(r, data, i, x) \
 	BOOST_PP_EXPR_IF(BOOST_PP_GREATER(2, BOOST_PP_TUPLE_SIZE(x)),\
@@ -101,7 +106,7 @@ struct field_data<i, Self> \
     }\
     const char * name() const \
     {\
-        return BOOST_PP_STRINGIZE(STRIP(x)); \
+        return strip_underscore(BOOST_PP_STRINGIZE(STRIP(x))); \
     } \
 };
 
