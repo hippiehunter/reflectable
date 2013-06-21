@@ -1,46 +1,90 @@
-#ifndef RAPIDJSON_FILESTREAM_H_
-#define RAPIDJSON_FILESTREAM_H_
+#ifndef RAPIDJSON_GENERICREADSTREAM_H_
+#define RAPIDJSON_GENERICREADSTREAM_H_
 
-#include <cstdio>
+#include "rapidjson.h"
+#include <iostream>
 
 namespace rapidjson {
 
-//! Wrapper of C file stream for input or output.
-/*!
-	This simple wrapper does not check the validity of the stream.
-	\implements Stream
-*/
-class FileStream {
+//! Wrapper of std::istream for input.
+class GenericReadStream {
 public:
-	typedef char Ch;	//!< Character type. Only support char.
+    typedef char Ch;    //!< Character type (byte).
 
-	FileStream(FILE* fp) : fp_(fp), count_(0) { Read(); }
-	char Peek() const { return current_; }
-	char Take() { char c = current_; Read(); return c; }
-	size_t Tell() const { return count_; }
-	void Put(char c) { fputc(c, fp_); }
+    //! Constructor.
+    /*!
+        \param is Input stream.
+    */
+    GenericReadStream(std::istream& is) : is_(is) {
+    }
 
-	// Not implemented
-	char* PutBegin() { return 0; }
-	size_t PutEnd(char*) { return 0; }
+    Ch Peek() const {
+        return static_cast<char>(is_.peek());
+    }
+
+    Ch Take() {
+        return static_cast<char>(is_.get());
+    }
+
+    size_t Tell() const {
+        return (int)is_.tellg();
+    }
+
+    // Not implemented
+    void Put(Ch c) { RAPIDJSON_ASSERT(false); }
+    void Flush() { RAPIDJSON_ASSERT(false); }
+    Ch* PutBegin() { RAPIDJSON_ASSERT(false); return 0; }
+    size_t PutEnd(Ch*) { RAPIDJSON_ASSERT(false); return 0; }
+
+    std::istream& is_;
+};
+
+
+//! Wrapper of std::ostream for output.
+class GenericWriteStream {
+public:
+    typedef char Ch;    //!< Character type. Only support char.
+
+    //! Constructor
+    /*!
+        \param os Output stream.
+    */
+    GenericWriteStream(std::ostream& os) : os_(os) {
+    }
+
+    void Put(char c) {
+        os_.put(c);
+    }
+
+    void PutN(char c, size_t n) {
+        for (size_t i = 0; i < n; i) {
+            Put(c);
+        }
+    }
+
+    void Flush() {
+        os_.flush();
+    }
+
+    size_t Tell() const {
+        return (int)os_.tellp();
+    }
+
+    // Not implemented
+    char Peek() const { RAPIDJSON_ASSERT(false); }
+    char Take() { RAPIDJSON_ASSERT(false); }
+    char* PutBegin() { RAPIDJSON_ASSERT(false); return 0; }
+    size_t PutEnd(char*) { RAPIDJSON_ASSERT(false); return 0; }
 
 private:
-	void Read() {
-		RAPIDJSON_ASSERT(fp_ != 0);
-		int c = fgetc(fp_);
-		if (c != EOF) {
-			current_ = (char)c;
-			count_++;
-		}
-		else
-			current_ = '\0';
-	}
-
-	FILE* fp_;
-	char current_;
-	size_t count_;
+    std::ostream& os_;
 };
+
+template<>
+inline void PutN(GenericWriteStream& stream, char c, size_t n) {
+    stream.PutN(c, n);
+}
 
 } // namespace rapidjson
 
-#endif // RAPIDJSON_FILESTREAM_H_
+#endif // RAPIDJSON_GENERICWRITESTREAM_H_

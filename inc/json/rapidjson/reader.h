@@ -99,10 +99,9 @@ struct BaseReaderHandler {
 */
 template<typename Stream>
 void SkipWhitespace(Stream& stream) {
-	Stream s = stream;	// Use a local copy for optimization
+	Stream& s = stream;	// Use a local copy for optimization
 	while (s.Peek() == ' ' || s.Peek() == '\n' || s.Peek() == '\r' || s.Peek() == '\t')
 		s.Take();
-	stream = s;
 }
 
 #ifdef RAPIDJSON_SSE42
@@ -363,7 +362,7 @@ private:
 	// Helper function to parse four hexidecimal digits in \uXXXX in ParseString().
 	template<typename Stream>
 	unsigned ParseHex4(Stream& stream) {
-		Stream s = stream;	// Use a local copy for optimization
+		Stream& s = stream;	// Use a local copy for optimization
 		unsigned codepoint = 0;
 		for (int i = 0; i < 4; i++) {
 			Ch c = s.Take();
@@ -378,7 +377,6 @@ private:
 			else 
 				RAPIDJSON_PARSE_ERROR("Incorrect hex digit after \\u escape", s.Tell() - 1);
 		}
-		stream = s; // Restore stream
 		return codepoint;
 	}
 
@@ -395,7 +393,7 @@ private:
 		};
 #undef Z16
 
-		Stream s = stream;	// Use a local copy for optimization
+		Stream& s = stream;	// Use a local copy for optimization
 		RAPIDJSON_ASSERT(s.Peek() == '\"');
 		s.Take();	// Skip '\"'
 		Ch *head;
@@ -463,7 +461,6 @@ private:
 					RAPIDJSON_PUT('\0');
 					handler.String(stack_.template Pop<Ch>(len), len - 1, true);
 				}
-				stream = s;	// restore stream
 				return;
 			}
 			else if (c == '\0') {
@@ -482,7 +479,7 @@ private:
 
 	template<unsigned parseFlags, typename Stream, typename Handler>
 	void ParseNumber(Stream& stream, Handler& handler) {
-		Stream s = stream; // Local copy for optimization
+		Stream& s = stream; // Local copy for optimization
 		// Parse minus
 		bool minus = false;
 		if (s.Peek() == '-') {
@@ -646,8 +643,6 @@ private:
 					handler.Uint(i);
 			}
 		}
-
-		stream = s; // restore stream
 	}
 
 	// Parse any JSON value
