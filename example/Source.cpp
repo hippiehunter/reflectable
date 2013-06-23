@@ -38,13 +38,13 @@ struct thing
 
 REFLECTABLE(
   (thing)
-  ((std::map<std::string, decltype(thing::data)> json_tag_map))
-  ((decltype(thing::data) thing::* json_tag_target))
-  ((std::string json_tag_source))
+  ((std::map<std::string, decltype(thing::data)> json_tag_map = {{"t1", link()}, {"listing", listing()}}))
+  ((decltype(thing::data) thing::* json_tag_target = &thing::data))
+  ((std::string json_tag_source = "kind"))
   ((struct json_tagged {})),
   (std::string, _id),
-  (std::string, kind, (json_tag_map = {{"t1", link()}, {"listing", listing()}};json_tag_source = "kind")),
-  (decltype(thing::data), data, (json_tag_target = &thing::data)))
+  (std::string, kind),
+  (decltype(thing::data), data))
 
 REFLECTABLE(
   (thing::link)(),
@@ -108,6 +108,7 @@ int main(int argc, char **argv)
   std::string snarf("{\"myInflator\":5}");
     std::string bla("{\"id\":\"\",\"kind\":\"t1\",\"data\":{\"name\":\"t1_asdfg\",\"subreddit\":\"programming\",\"title\":\"some link\"}}");
     thing th;
+    thing th2;
     somecrap crp;
     somecrap crp2;
     hasVector hv;
@@ -119,15 +120,19 @@ int main(int argc, char **argv)
     //rapidjson::Writer<rapidjson::FileStream> writer(s);
     //Serialize(writer, th);
     //Serialize(writer, crp);
-    //rapidjson::GenericStringStream<rapidjson::UTF8<>> inStream("{\"id\":\"\",\"kind\":\"t1\",\"data\":{\"name\":\"t1_asdfgg\",\"subreddit\":\"programming\",\"title\":\"some link\"}}");
-    //Deserialize(inStream, std::move(DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(th)));
+    rapidjson::GenericStringStream<rapidjson::UTF8<>> inStream("{\"id\":\"\",\"kind\":\"t1\",\"data\":{\"name\":\"t1_asdfgg\",\"subreddit\":\"programming\",\"title\":\"some link\"}}");
+    Deserialize(inStream, std::move(DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(th)));
     
     
-    //rapidjson::GenericStringStream<rapidjson::UTF8<>> inStream2("{\"myInflator\":5}");
-    //Deserialize(inStream2, std::move(DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(crp2)));
+    rapidjson::GenericStringStream<rapidjson::UTF8<>> inStream2("{\"myInflator\":5}");
+    Deserialize(inStream2, std::move(DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(crp2)));
     
     rapidjson::GenericStringStream<rapidjson::UTF8<>> inStream3("{\"myVec\":[5,6,7],\"myStringVec\":[\"strings\", \"are\", \"working\"], \"myInflatableVector\":[1,2,3], \"myBoolVector\":[true,false], \"myFloatVector\":[1.0, 1.5, 1.337], \"myDoubleVector\":[1.0, 1.5, 1.337], \"myShortVector\":[5,6,7]}");
     Deserialize(inStream3, std::move(DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(hv)));
+    
+    rapidjson::GenericStringStream<rapidjson::UTF8<>> inStream4("{\"id\":\"\",\"kind\":\"listing\",\"data\":{\"before\":\"t1_asdfgg\",\"after\":\"programming\",\"children\":[{\"id\":\"\",\"kind\":\"t1\",\"data\":{\"name\":\"t1_asdfgg\",\"subreddit\":\"programming\",\"title\":\"some link\"}}]}}");
+    Deserialize(inStream4, std::move(DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(th2)));
+    
     
     std::cout << hv.myVec.size() << std::endl;
     //Serialize(writer, crp2);

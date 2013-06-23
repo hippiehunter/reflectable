@@ -144,6 +144,7 @@ struct ArrayDeserializationReflectableVisitor
       throw std::runtime_error((boost::format("DeserializationReflectableVisitor: field type %1% doesnt match field type %2% in array type %3%") % typeid(Tn).name() % typeid(T2).name() % typeid(ReflectableArray).name()).str());
     }
     
+    
     template<typename Tn, typename T2>
     void impl(char) const
     { 
@@ -571,25 +572,35 @@ void Deserialize(Stream& stream, std::unique_ptr<BaseReaderHandler> && handler)
     {
       _handlerStack.push(_handlerStack.top()->StartObject(std::unique_ptr<BaseReaderHandler>(nullptr)));
 
-      if(_handlerStack.top() == nullptr)
+      if(!_handlerStack.top())
         _handlerStack.pop();
     }
     void EndObject(size_t size)
     {
-      _handlerStack.top()->EndObject(size);
-      _handlerStack.pop();
+      if(_handlerStack.top())
+      {
+	_handlerStack.top()->EndObject(size);
+	_handlerStack.pop();
+      }
+      else
+	throw std::runtime_error("mismatched object");
     }
     void StartArray()
     {
       _handlerStack.push(_handlerStack.top()->StartArray(std::unique_ptr<BaseReaderHandler>(nullptr)));
 
-      if(_handlerStack.top() == nullptr)
+      if(!_handlerStack.top())
         _handlerStack.pop();
     }
     void EndArray(size_t size)
     {
-      _handlerStack.top()->EndArray(size);
-      _handlerStack.pop();
+      if(_handlerStack.top())
+      {
+	_handlerStack.top()->EndArray(size);
+	_handlerStack.pop();
+      }
+      else
+	throw std::runtime_error("mismatched array");
     }
   };
   rapidjson::Reader reader;
@@ -636,15 +647,17 @@ struct DeserializeArrayHandlerReaderHandler : public BaseReaderHandler
   }
   
   template<typename ReflArray>
-  auto StartObjectImpl(std::unique_ptr<BaseReaderHandler> && result, int) -> decltype(std::declval<typename ReflArray::value_type::reflectable>(),std::move(std::declval<std::unique_ptr<BaseReaderHandler>>()))
+  auto StartObjectImpl(std::unique_ptr<BaseReaderHandler> && result, int) -> decltype(std::declval<typename ReflArray::value_type::reflectable>(), std::move(std::declval<std::unique_ptr<BaseReaderHandler>>()))
   {
     _reflectable.push_back(typename ReflArray::value_type());
-    return std::move(DeserializeHandler<PrimativeDeserializationVisitor, ObjectDeserializationVisitor, typename ReflArray::value_type>(_reflectable.back()));
+    result = DeserializeHandler<PrimativeDeserializationVisitor, ObjectDeserializationVisitor, typename ReflArray::value_type>(_reflectable.back());
+    return std::move(result);
     
   }
   template<typename ReflArray>
   auto StartObjectImpl(std::unique_ptr<BaseReaderHandler> && result, long) -> decltype(std::move(std::declval<std::unique_ptr<BaseReaderHandler>>()))
   {
+    throw std::runtime_error((boost::format("DeserializeArrayHandlerReaderHandler: failed to start object")).str());
     return std::move(result);
   }
   
@@ -691,7 +704,7 @@ std::unique_ptr<BaseReaderHandler> DeserializeHandler(ReflectableObject& reflect
       if(reflectionEntry == _reflection_map.map.end())
 	throw std::runtime_error((boost::format("field %1% not found in type %2%") % _currentName % typeid(ReflectableObject).name()).str());
       else
-	return _reflection_map.map[_currentName];
+	return reflectionEntry->second;
     }
     
     void Default() {}
@@ -785,26 +798,28 @@ public:
 //the object is totally different. Its not a stack though because all fields that follow the tag
 //must be fields of the variant instead of the original object
 template <typename PrimativeDeserializationVisitor, typename ObjectDeserializationVisitor, typename ReflectableObject>
-auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::declval<typename ReflectableObject::reflectable::json_tag_map>(), std::unique_ptr<BaseReaderHandler>())
+auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::declval<typename ReflectableObject::reflectable>().json_tag_map, std::unique_ptr<BaseReaderHandler>())
 {
   static typename ReflectableObject::reflectable reflection_map;
   struct ReaderHandler : public BaseReaderHandler
   {
-    ReaderHandler(ReflectableObject& reflectable) : _reflectable(reflectable), _lookingForName(true) { }
+    ReaderHandler(ReflectableObject& reflectable, typename ReflectableObject::reflectable& reflection_map) : _reflectable(reflectable), _reflection_map(reflection_map), _lookingForName(true), _skipNextFieldName(false) { }
     ReflectableObject& _reflectable;
 
     bool _lookingForName;
+    bool _skipNextFieldName;
     std::string _currentName;
     std::string _tempStringValue;
     std::unique_ptr<BaseReaderHandler> _variantReaderHandler;
+    typename ReflectableObject::reflectable& _reflection_map;
 
     auto current_field() -> decltype(std::declval<typename ReflectableObject::reflectable>().map[""])
     {
-      auto reflectionEntry = reflection_map.map.find(_currentName);
-      if(reflectionEntry == reflection_map.map.end())
-	throw std::runtime_error(boost::format("DeserializeHandler: field %1% not found in type %2%") % _currentName % typeid(ReflectableObject).name());
+      auto reflectionEntry = _reflection_map.map.find(_currentName);
+      if(reflectionEntry == _reflection_map.map.end())
+	throw std::runtime_error((boost::format("DeserializeHandler: field %1% not found in type %2%") % _currentName % typeid(ReflectableObject).name()).str());
       else
-	return *reflectionEntry;
+	return reflectionEntry->second;
     }
     
     void Default() {}
@@ -874,7 +889,14 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
 
     virtual void String(const char* value, size_t length, bool unnamedBool)
     {
-      if(_variantReaderHandler != nullptr)
+      typedef typename decltype(_reflection_map.json_tag_map)::key_type tag_map_key_t;
+      
+      
+      if(_skipNextFieldName)
+      {
+	_skipNextFieldName = false;
+      }
+      else if(_variantReaderHandler != nullptr)
         _variantReaderHandler->String(value, length, unnamedBool);
       else
       {
@@ -882,11 +904,12 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
         {
           boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<std::string, ReflectableObject>(_tempStringValue.assign(value, length), _reflectable), current_field());
 
-          if(ReflectableObject::json_tag_source == _currentName)
+          if(_reflection_map.json_tag_source == _currentName)
           {
-            _reflectable.*ReflectableObject::json_tag_target = ReflectableObject::json_tag_map[current_field().*_reflectable];
+	    _skipNextFieldName = true;
+            _reflectable.*_reflection_map.json_tag_target = _reflection_map.json_tag_map[_reflectable.*boost::get<tag_map_key_t ReflectableObject::*>(current_field())];
 
-            boost::apply_visitor(VariantDeserializationVisitor<PrimativeDeserializationVisitor, ObjectDeserializationVisitor, ReflectableObject>(_variantReaderHandler), _reflectable.*ReflectableObject::json_tag_target);
+            boost::apply_visitor(VariantDeserializationVisitor<PrimativeDeserializationVisitor, ObjectDeserializationVisitor, ReflectableObject>(_variantReaderHandler), _reflectable.*_reflection_map.json_tag_target);
           }
         }
         else
@@ -898,7 +921,12 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
     virtual std::unique_ptr<BaseReaderHandler> && StartObject(std::unique_ptr<BaseReaderHandler> && result)
     {
       if(_variantReaderHandler != nullptr)
-        return std::move(_variantReaderHandler->StartObject(std::move(result)));
+      {
+        _variantReaderHandler->StartObject(std::move(std::unique_ptr<BaseReaderHandler>(nullptr)));
+	result = std::move(_variantReaderHandler);
+	_variantReaderHandler = nullptr;
+	return std::move(result);
+      }
       else
       {
         if(!_lookingForName)
@@ -908,7 +936,11 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
         return std::move(result);
       }
     }
-    virtual void EndObject(size_t) { Default(); }
+    virtual void EndObject(size_t) 
+    { 
+      //_variantReaderHandler = nullptr;
+      Default(); 
+    }
     virtual std::unique_ptr<BaseReaderHandler> && StartArray(std::unique_ptr<BaseReaderHandler> && result)
     {
       if(_variantReaderHandler != nullptr)
@@ -928,14 +960,14 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
     virtual void EndArray(size_t) { Default(); }
   };
 
-  return std::unique_ptr<BaseReaderHandler>(new ReaderHandler(reflectable));
+  return std::unique_ptr<BaseReaderHandler>(new ReaderHandler(reflectable, reflection_map));
 }
 
 template <typename PrimativeDeserializationVisitor, typename ObjectDeserializationVisitor, typename ReflectableObject>
 std::unique_ptr<BaseReaderHandler> DeserializeHandler(ReflectableObject& reflectable)
 {
-  return std::move(DeserializeHandler < PrimativeDeserializationVisitor,
-                   ObjectDeserializationVisitor, ReflectableObject > (reflectable, 0));
+  return DeserializeHandler < PrimativeDeserializationVisitor,
+                   ObjectDeserializationVisitor, ReflectableObject > (reflectable, 0);
 }
 
 #endif
