@@ -102,7 +102,7 @@ struct DeserializationReflectableVisitor
     }
     
     template<typename Tn>
-    auto operator()(Tn ReflectableObject::* data) const -> decltype(std::declval<type<T,ReflectableObject>*>()->impl<Tn, T>(data, 0))
+    auto operator()(Tn ReflectableObject::* data) const -> decltype(std::declval<type<T,ReflectableObject>*>()->template impl<Tn, T>(data, 0))
     {
       impl<Tn, T>(data, 0);
     }
@@ -152,7 +152,7 @@ struct ArrayDeserializationReflectableVisitor
     }
     
     template<typename Tn>
-    auto operator()(Tn ReflectableArray::* data) const -> decltype(std::declval<type<T,ReflectableArray>*>()->impl<Tn, T>(0))
+    auto operator()(Tn ReflectableArray::* data) const -> decltype(std::declval<type<T,ReflectableArray>*>()->template impl<Tn, T>(0))
     {
       impl<Tn, T>(0);
     }
@@ -557,47 +557,47 @@ void Deserialize(Stream& stream, std::unique_ptr<BaseReaderHandler> && handler)
     std::stack<std::unique_ptr<BaseReaderHandler>> _handlerStack;
     ReaderHandler(std::unique_ptr<BaseReaderHandler> && handler)
     {
-      _handlerStack.push(std::move(handler));
+      this->_handlerStack.push(std::move(handler));
     }
 
-    void Null() { _handlerStack.top()->Null(); }
-    void Bool(bool value) { _handlerStack.top()->Bool(value); }
-    void Int(int value) { _handlerStack.top()->Int(value); }
-    void Uint(unsigned value) { _handlerStack.top()->Uint(value); }
-    void Int64(int64_t value) { _handlerStack.top()->Int64(value); }
-    void Uint64(uint64_t value) { _handlerStack.top()->Uint64(value); }
-    void Double(double value) { _handlerStack.top()->Double(value); }
-    void String(const char* value, size_t length, bool b) { _handlerStack.top()->String(value, length, b); }
+    void Null() { this->_handlerStack.top()->Null(); }
+    void Bool(bool value) { this->_handlerStack.top()->Bool(value); }
+    void Int(int value) { this->_handlerStack.top()->Int(value); }
+    void Uint(unsigned value) { this->_handlerStack.top()->Uint(value); }
+    void Int64(int64_t value) { this->_handlerStack.top()->Int64(value); }
+    void Uint64(uint64_t value) { this->_handlerStack.top()->Uint64(value); }
+    void Double(double value) { this->_handlerStack.top()->Double(value); }
+    void String(const char* value, size_t length, bool b) { this->_handlerStack.top()->String(value, length, b); }
     void StartObject()
     {
-      _handlerStack.push(_handlerStack.top()->StartObject(std::unique_ptr<BaseReaderHandler>(nullptr)));
+      this->_handlerStack.push(this->_handlerStack.top()->StartObject(std::unique_ptr<BaseReaderHandler>(nullptr)));
 
-      if(!_handlerStack.top())
-        _handlerStack.pop();
+      if(!this->_handlerStack.top())
+        this->_handlerStack.pop();
     }
     void EndObject(size_t size)
     {
-      if(_handlerStack.top())
+      if(this->_handlerStack.top())
       {
-	_handlerStack.top()->EndObject(size);
-	_handlerStack.pop();
+	this->_handlerStack.top()->EndObject(size);
+	this->_handlerStack.pop();
       }
       else
 	throw std::runtime_error("mismatched object");
     }
     void StartArray()
     {
-      _handlerStack.push(_handlerStack.top()->StartArray(std::unique_ptr<BaseReaderHandler>(nullptr)));
+      this->_handlerStack.push(this->_handlerStack.top()->StartArray(std::unique_ptr<BaseReaderHandler>(nullptr)));
 
-      if(!_handlerStack.top())
-        _handlerStack.pop();
+      if(!this->_handlerStack.top())
+        this->_handlerStack.pop();
     }
     void EndArray(size_t size)
     {
-      if(_handlerStack.top())
+      if(this->_handlerStack.top())
       {
-	_handlerStack.top()->EndArray(size);
-	_handlerStack.pop();
+	this->_handlerStack.top()->EndArray(size);
+	this->_handlerStack.pop();
       }
       else
 	throw std::runtime_error("mismatched array");
