@@ -6,7 +6,8 @@ SET(CMAKE_CXX_FLAGS "-std=c++0x")
 
 FIND_PACKAGE(Boost REQUIRED)
 
-include_directories("${CMAKE_SOURCE_DIR}/inc/" ${Boost_INCLUDE_DIR})
+include_directories("${CMAKE_SOURCE_DIR}/inc/reflectable" ${Boost_INCLUDE_DIR})
 
 add_executable(reflectable_sample "example/Source.cpp")
 
+install (DIRECTORY "${CMAKE_SOURCE_DIR}/inc/" DESTINATION include)
