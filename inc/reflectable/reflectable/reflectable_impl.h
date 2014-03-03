@@ -1,11 +1,11 @@
 #ifndef REFLECTABLE_IMPL_H
 #define REFLECTABLE_IMPL_H
-
 //this must be valid on your compiler/platform of choice or we cant do our macro magic
 #define BOOST_PP_VARIADICS 1
 #define DEFINE_REFLECTION
 
 #include <boost/preprocessor.hpp>
+#include <boost/mpl/list.hpp>
 #include <boost/mpl/for_each.hpp>
 #include <boost/mpl/range_c.hpp>
 #include <boost/mpl/transform.hpp>
@@ -14,7 +14,6 @@
 #include <boost/mpl/insert.hpp>
 #include <boost/mpl/front_inserter.hpp>
 #include <boost/mpl/set.hpp>
-#include <boost/mpl/vector.hpp>
 #include <boost/type_traits.hpp>
 #include <boost/mpl/copy.hpp>
 #include <boost/mpl/not.hpp>
@@ -117,9 +116,9 @@ struct field_data<i, Self> \
 	template<int N, class Self> \
 	struct field_data {}; \
 	BOOST_PP_SEQ_FOR_EACH_I(REFLECT_EACH, data, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)) \
-	typedef boost::mpl::vector<BOOST_PP_SEQ_FOR_EACH_I(REFLECT_EACH_2, BOOST_PP_SEQ_HEAD(this_lst), BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))> field_data_seq; \
+	typedef boost::mpl::list<BOOST_PP_SEQ_FOR_EACH_I(REFLECT_EACH_2, BOOST_PP_SEQ_HEAD(this_lst), BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))> field_data_seq; \
 	/*field types*/ \
-	typedef boost::mpl::fold<boost::mpl::vector<BOOST_PP_SEQ_FOR_EACH_I(REFLECT_EACH_3, BOOST_PP_SEQ_HEAD(this_lst), BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))>, boost::mpl::set0<>, boost::mpl::insert<boost::mpl::_1,boost::mpl::_2>>::type unique_field_types_t; \
+	typedef boost::mpl::fold<boost::mpl::list<BOOST_PP_SEQ_FOR_EACH_I(REFLECT_EACH_3, BOOST_PP_SEQ_HEAD(this_lst), BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))>, boost::mpl::set0<>, boost::mpl::insert<boost::mpl::_1,boost::mpl::_2>>::type unique_field_types_t; \
 	typedef boost::mpl::copy<unique_field_types_t, boost::mpl::front_inserter<boost::mpl::list<>>>::type unique_field_types_list_t;\
 	typedef boost::make_variant_over<unique_field_types_list_t>::type field_type_variant_t; \
 	/*combine the field values and field types into a map*/ \
