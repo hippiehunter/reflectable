@@ -1,5 +1,4 @@
-#ifndef JSON_SERIALIZATION_H
-#define JSON_SERIALIZATION_H
+#pragma once
 
 #include <map>
 #include <type_traits>
@@ -45,7 +44,7 @@ struct BaseReaderHandler
   virtual std::unique_ptr<BaseReaderHandler> && StartObject(std::unique_ptr<BaseReaderHandler> &&) = 0;
   virtual void EndObject(size_t) = 0;
   virtual std::unique_ptr<BaseReaderHandler> && StartArray(std::unique_ptr<BaseReaderHandler> &&) = 0;
-  virtual void EndArray(size_t)  = 0;
+  virtual void EndArray(size_t) = 0;
 };
 
 namespace rapidjson
@@ -71,38 +70,31 @@ struct DeserializationReflectableVisitor
     type(const T& value, ReflectableObject& reflectable) : _value(value), _reflectable(reflectable) {}
 
     template<typename Tn, typename T2>
-    auto impl(Tn ReflectableObject::* data, int) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), std::remove_pointer<Tn>::type::inflatable::inflate(std::declval<T2>()),  void())
+    auto impl(Tn ReflectableObject::* data, int, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy = 0) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
     {
-      _reflectable.*data = std::remove_pointer<Tn>::type::inflatable::inflate(_value);
+      _reflectable.*data = std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::inflatable::inflate_t, T2>::convert(_value));
     }
-    
-    template<typename Tn, typename T2>
-    auto impl(Tn ReflectableObject::* data, int) const -> typename std::enable_if<boost::type_traits::ice_and<std::is_arithmetic<Tn>::value, std::is_arithmetic<T2>::value>::value, decltype(void())>::type
-    { 
-      _reflectable.*data = boost::numeric::converter<Tn,T>::convert(_value);
-    }
-    
-    template<typename Tn, typename T2>
-    auto impl2(Tn ReflectableObject::* data, int) const -> typename std::enable_if<std::is_same<Tn, T2>::value, decltype(void())>::type
-    { 
-      _reflectable.*data = _value;
-    }
-    
-    template<typename Tn, typename T2>
-    void impl(Tn ReflectableObject::* data, char) const
-    { 
-      impl2<Tn, T2>(data, 0);
-    }
-    
 
     template<typename Tn, typename T2>
-    void impl2(Tn ReflectableObject::* data, char) const
-    { 
+    auto impl(Tn ReflectableObject::* data, int, typename std::enable_if<std::is_arithmetic<Tn>::value>::type* dummy = 0, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy2 = 0) const -> void
+    {
+      _reflectable.*data = boost::numeric::converter<Tn, T>::convert(_value);
+    }
+
+    template<typename Tn, typename T2>
+    auto impl(Tn ReflectableObject::* data, int) const -> typename std::enable_if<std::is_same<Tn, T2>::value, decltype(void())>::type
+    {
+      _reflectable.*data = _value;
+    }
+
+    template<typename Tn, typename T2>
+    void impl(Tn ReflectableObject::* data, unsigned int) const
+    {
       throw std::runtime_error((boost::format("DeserializationReflectableVisitor: field type %1% doesnt match field type %2% in object type %3%") % typeid(Tn).name() % typeid(T2).name() % typeid(ReflectableObject).name()).str());
     }
-    
+
     template<typename Tn>
-    auto operator()(Tn ReflectableObject::* data) const -> decltype(std::declval<type<T,ReflectableObject>*>()->template impl<Tn, T>(data, 0))
+    auto operator()(Tn ReflectableObject::* data) const -> void
     {
       impl<Tn, T>(data, 0);
     }
@@ -121,38 +113,38 @@ struct ArrayDeserializationReflectableVisitor
     type(const T& value, ReflectableArray& reflectable) : _value(value), _reflectable(reflectable) {}
 
     template<typename Tn, typename T2>
-    auto impl(int) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), std::remove_pointer<Tn>::type::inflatable::inflate(std::declval<T2>()),  void())
+    auto impl(int, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy = 0) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
     {
-      _reflectable.push_back(std::remove_pointer<Tn>::type::inflatable::inflate(_value));
+      _reflectable.push_back(typename std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::inflatable::inflate_t, T2>::convert(_value)));
     }
 
     template<typename Tn, typename T2>
     auto impl(int) const -> typename std::enable_if<boost::type_traits::ice_and<std::is_arithmetic<Tn>::value, std::is_arithmetic<T2>::value>::value, decltype(void())>::type
-    { 
-      _reflectable.push_back(boost::numeric::converter<Tn,T>::convert(_value));
+    {
+      _reflectable.push_back(boost::numeric::converter<Tn, T>::convert(_value));
     }
-    
+
     template<typename Tn, typename T2>
     auto impl2(int) const -> typename std::enable_if<std::is_same<Tn, T2>::value, decltype(void())>::type
-    { 
+    {
       _reflectable.push_back(_value);
     }
-    
+
     template<typename Tn, typename T2>
     void impl2(char) const
-    { 
+    {
       throw std::runtime_error((boost::format("DeserializationReflectableVisitor: field type %1% doesnt match field type %2% in array type %3%") % typeid(Tn).name() % typeid(T2).name() % typeid(ReflectableArray).name()).str());
     }
-    
-    
+
+
     template<typename Tn, typename T2>
     void impl(char) const
-    { 
+    {
       impl2<Tn, T2>(0);
     }
-    
+
     template<typename Tn>
-    auto operator()(Tn ReflectableArray::* data) const -> decltype(std::declval<type<T,ReflectableArray>*>()->template impl<Tn, T>(0))
+    auto operator()(Tn ReflectableArray::* data) const -> decltype(std::declval<type<T, ReflectableArray>*>()->template impl<Tn, T>(0))
     {
       impl<Tn, T>(0);
     }
@@ -184,7 +176,7 @@ struct DeserializationObjectReflectableVisitor
     type(std::unique_ptr<BaseReaderHandler>& value, ReflectableObject& reflectable) : _value(value), _reflectable(reflectable) {}
 
     template<typename Tn>
-    auto impl2(Tn ReflectableObject::* data, int) const -> decltype(std::declval<typename Tn::reflectable>(), void())
+    auto impl2(Tn ReflectableObject::* data, unsigned int) const -> decltype(std::declval<typename Tn::reflectable>(), void())
     {
       _value = DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(_reflectable.*data);
     }
@@ -194,24 +186,18 @@ struct DeserializationObjectReflectableVisitor
     {
       boost::apply_visitor(ReflectableVariantVisitor(_value), _reflectable.*data);
     }
-    
-    template<typename Tn>
-    auto impl2(Tn ReflectableObject::* data, int) const -> decltype(std::declval<std::remove_pointer<Tn>::type::inflatable>(), void())
-    {
-      _value = DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(std::remove_pointer<Tn>::type::inflatable::inflate(_reflectable.*data));
-    }
 
     template<typename Tn>
-    void impl(Tn ReflectableObject::* data, unsigned char) const 
-    { 
+    void impl(Tn ReflectableObject::* data, unsigned char) const
+    {
       impl2(data, 0);
     }
-    
+
     template<typename Tn>
     void impl2(Tn ReflectableObject::* data, unsigned char) const { }
 
     template<typename Tn>
-    auto operator()(Tn ReflectableObject::* data) const -> decltype(std::declval<type<ReflectableObject>*>()->impl(data, 0))
+    auto operator()(Tn ReflectableObject::* data) const -> decltype(std::declval<typename DeserializationObjectReflectableVisitor::template type<ReflectableObject>*>()->impl(std::declval<Tn ReflectableObject::*>(), 0))
     {
       impl(data, 0);
     }
@@ -331,42 +317,42 @@ class SerializationReflectableVisitor : public boost::static_visitor<>
   ReflectableObject& _reflectable;
 public:
   SerializationReflectableVisitor(Writer& writer, ReflectableObject& reflectable) : _writer(writer), _reflectable(reflectable) {}
-  void operator()(int ReflectableObject::* data) const
+  void impl(int ReflectableObject::* data, int) const
   {
     _writer.Int(_reflectable.*data);
   }
 
-  void operator()(unsigned ReflectableObject::* data) const
+  void impl(unsigned ReflectableObject::* data, int) const
   {
     _writer.Uint(_reflectable.*data);
   }
 
-  void operator()(int64_t ReflectableObject::* data) const
+  void impl(int64_t ReflectableObject::* data, int) const
   {
     _writer.Int64(_reflectable.*data);
   }
 
-  void operator()(uint64_t ReflectableObject::* data) const
+  void impl(uint64_t ReflectableObject::* data, int) const
   {
     _writer.Uint64(_reflectable.*data);
   }
 
-  void operator()(bool ReflectableObject::* data) const
+  void impl(bool ReflectableObject::* data, int) const
   {
     _writer.Bool(_reflectable.*data);
   }
 
-  void operator()(double ReflectableObject::* data) const
+  void impl(double ReflectableObject::* data, int) const
   {
     _writer.Double(_reflectable.*data);
   }
 
-  void operator()(std::string ReflectableObject::* data) const
+  void impl(std::string ReflectableObject::* data) const
   {
     _writer.String((_reflectable.*data).c_str(), (_reflectable.*data).size());
   }
-  
-  
+
+
   void operator()(int data) const
   {
     _writer.Int(data);
@@ -386,7 +372,6 @@ public:
   {
     _writer.Uint64(data);
   }
-  
 
   template<typename Tn>
   auto impl(Tn ReflectableObject::* data, unsigned int) const -> decltype(std::declval<typename Tn::iterator>(), void())
@@ -399,9 +384,9 @@ public:
   {
     Serialize(_writer, (_reflectable.*data));
   }
-  
+
   template<typename Tn>
-  auto impl(Tn ReflectableObject::* data, int) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
+  auto impl(Tn ReflectableObject::* data, int) const -> decltype(std::declval<std::remove_pointer<Tn>::type::inflatable>(), void())
   {
     this->operator()(std::remove_pointer<Tn>::type::inflatable::deflate(_reflectable.*data));
   }
@@ -419,14 +404,14 @@ public:
   };
 
   template<typename Tn>
-  auto impl(Tn ReflectableObject::* data, int) const ->
-  decltype(std::declval<typename Tn::types>(), void())
+  auto impl(Tn ReflectableObject::* data, unsigned char) const ->
+    decltype(std::declval<typename Tn::types>(), void())
   {
     boost::apply_visitor(VariantSerializationVisitor(_writer), _reflectable.*data);
   }
 
   template<typename Tn>
-  auto operator()(Tn ReflectableObject::* data) const -> decltype(((SerializationReflectableVisitor<Writer, ReflectableObject>*)nullptr)->impl(data, 0))
+  auto operator()(Tn ReflectableObject::* data) const -> decltype((std::declval<SerializationReflectableVisitor<Writer, ReflectableObject>*>())->template impl<Tn>(std::declval<Tn ReflectableObject::*>(), 0))
   {
     impl(data, 0);
   }
@@ -480,15 +465,15 @@ public:
   }
 
   template<typename Tn>
-  auto impl(Tn& data, int) const -> decltype(std::declval<typename Tn::reflectable>(), void())
+  auto impl(Tn& data, short) const -> decltype(std::declval<typename Tn::reflectable>(), void())
   {
     Serialize(_writer, data);
   }
-  
+
   template<typename Tn>
-  auto impl(Tn& data, unsigned int) const -> decltype(std::declval<std::remove_pointer<Tn>::inflatable>(), void())
+  auto impl(Tn& data, unsigned int) const -> decltype(std::declval<std::remove_pointer<Tn>::type::inflatable>(), void())
   {
-    Serialize(_writer, data);
+    operator()(std::remove_pointer<Tn>::type::inflatable::deflate(data));
   }
 
   class VariantSerializationVisitor : public boost::static_visitor<>
@@ -504,14 +489,14 @@ public:
   };
 
   template<typename Tn>
-  auto impl(Tn& data, short) const ->
-  decltype(std::declval<VariantSerializationVisitor>()(data), void())
+  auto impl(Tn& data, int) const ->
+    decltype(std::declval<typename Tn::types>(), void())
   {
     boost::apply_visitor(VariantSerializationVisitor(_writer), data);
   }
 
   template<typename Tn>
-  auto operator()(Tn& data) const -> decltype(std::declval<SerializationArrayReflectableVisitor<Writer>*>()->impl(data, 0))
+  auto operator()(Tn& data) const -> decltype(std::declval<SerializationArrayReflectableVisitor<Writer>*>()->template impl<Tn>(std::declval<Tn>(), 0))
   {
     impl(data, 0);
   }
@@ -525,7 +510,7 @@ void Serialize(Writer& writer, ReflectableObject& reflectable)
 
   SerializationReflectableVisitor<Writer, ReflectableObject> fieldVisitor(writer, reflectable);
 
-  for(auto pair : reflection_map.noLookup)
+  for (auto&& pair : reflection_map.noLookup)
   {
     writer.String(pair.first.c_str(), pair.first.size());
     boost::apply_visitor(fieldVisitor, pair.second);
@@ -541,7 +526,7 @@ void SerializeArray(Writer& writer, ReflectableArray& reflectableArray)
 
   SerializationArrayReflectableVisitor<Writer> fieldVisitor(writer);
 
-  for(auto value : reflectableArray)
+  for (auto&& value : reflectableArray)
   {
     fieldVisitor(value);
   }
@@ -567,40 +552,44 @@ void Deserialize(Stream& stream, std::unique_ptr<BaseReaderHandler> && handler)
     void Int64(int64_t value) { this->_handlerStack.top()->Int64(value); }
     void Uint64(uint64_t value) { this->_handlerStack.top()->Uint64(value); }
     void Double(double value) { this->_handlerStack.top()->Double(value); }
-    void String(const char* value, size_t length, bool b) { this->_handlerStack.top()->String(value, length, b); }
+    void String(const char* value, size_t length, bool b)
+    {
+      auto&& topHandler = this->_handlerStack.top();
+      auto ptr = topHandler.get();
+      ptr->String(value, length, b);
+    }
     void StartObject()
     {
-      this->_handlerStack.push(this->_handlerStack.top()->StartObject(std::unique_ptr<BaseReaderHandler>(nullptr)));
+      auto result = std::move(this->_handlerStack.top()->StartObject(std::unique_ptr<BaseReaderHandler>(nullptr)));
 
-      if(!this->_handlerStack.top())
-        this->_handlerStack.pop();
+      if (result)
+        this->_handlerStack.push(std::move(result));
     }
     void EndObject(size_t size)
     {
-      if(this->_handlerStack.top())
+      if (this->_handlerStack.top())
       {
-	this->_handlerStack.top()->EndObject(size);
-	this->_handlerStack.pop();
+        this->_handlerStack.top()->EndObject(size);
+        this->_handlerStack.pop();
       }
       else
-	throw std::runtime_error("mismatched object");
+        throw std::runtime_error("mismatched object");
     }
     void StartArray()
     {
-      this->_handlerStack.push(this->_handlerStack.top()->StartArray(std::unique_ptr<BaseReaderHandler>(nullptr)));
-
-      if(!this->_handlerStack.top())
-        this->_handlerStack.pop();
+      auto result = std::move(this->_handlerStack.top()->StartArray(std::unique_ptr<BaseReaderHandler>(nullptr)));
+      if (result)
+        this->_handlerStack.push(std::move(result));
     }
     void EndArray(size_t size)
     {
-      if(this->_handlerStack.top())
+      if (this->_handlerStack.top())
       {
-	this->_handlerStack.top()->EndArray(size);
-	this->_handlerStack.pop();
+        this->_handlerStack.top()->EndArray(size);
+        this->_handlerStack.pop();
       }
       else
-	throw std::runtime_error("mismatched array");
+        throw std::runtime_error("mismatched array");
     }
   };
   rapidjson::Reader reader;
@@ -639,20 +628,20 @@ struct DeserializeArrayHandlerReaderHandler : public BaseReaderHandler
   }
   virtual void Double(double value)
   {
-    typename ArrayDeserializationReflectableVisitor::template type<uint64_t, ReflectableArray>(value, _reflectable)(static_cast<typename ReflectableArray::value_type ReflectableArray::*>(nullptr));
+    typename ArrayDeserializationReflectableVisitor::template type<double, ReflectableArray>(value, _reflectable)(static_cast<typename ReflectableArray::value_type ReflectableArray::*>(nullptr));
   }
   virtual void String(const char* value, size_t length, bool)
   {
     typename ArrayDeserializationReflectableVisitor::template type<std::string, ReflectableArray>(_tempStringValue.assign(value, length), _reflectable)(static_cast<typename ReflectableArray::value_type ReflectableArray::*>(nullptr));
   }
-  
+
   template<typename ReflArray>
   auto StartObjectImpl(std::unique_ptr<BaseReaderHandler> && result, int) -> decltype(std::declval<typename ReflArray::value_type::reflectable>(), std::move(std::declval<std::unique_ptr<BaseReaderHandler>>()))
   {
     _reflectable.push_back(typename ReflArray::value_type());
-    result = DeserializeHandler<PrimativeDeserializationVisitor, ObjectDeserializationVisitor, typename ReflArray::value_type>(_reflectable.back());
+    result = std::move(DeserializeHandler<PrimativeDeserializationVisitor, ObjectDeserializationVisitor, typename ReflArray::value_type>(_reflectable.back()));
     return std::move(result);
-    
+
   }
   template<typename ReflArray>
   auto StartObjectImpl(std::unique_ptr<BaseReaderHandler> && result, long) -> decltype(std::move(std::declval<std::unique_ptr<BaseReaderHandler>>()))
@@ -660,14 +649,15 @@ struct DeserializeArrayHandlerReaderHandler : public BaseReaderHandler
     throw std::runtime_error((boost::format("DeserializeArrayHandlerReaderHandler: failed to start object")).str());
     return std::move(result);
   }
-  
-  
+
+
   virtual std::unique_ptr<BaseReaderHandler> && StartObject(std::unique_ptr<BaseReaderHandler> && result)
   {
-    return std::move(StartObjectImpl<ReflectableArray>(std::move(result), 0));
+    result = std::move(StartObjectImpl<ReflectableArray>(std::move(result), 0));
+    return std::move(result);
   }
-  
-  
+
+
   virtual void EndObject(size_t) { Default(); }
   virtual std::unique_ptr<BaseReaderHandler> && StartArray(std::unique_ptr<BaseReaderHandler> && result)
   {
@@ -701,12 +691,12 @@ std::unique_ptr<BaseReaderHandler> DeserializeHandler(ReflectableObject& reflect
     auto current_field() -> decltype(std::declval<typename ReflectableObject::reflectable>().map[""])
     {
       auto reflectionEntry = _reflection_map.map.find(_currentName);
-      if(reflectionEntry == _reflection_map.map.end())
-	throw std::runtime_error((boost::format("field %1% not found in type %2%") % _currentName % typeid(ReflectableObject).name()).str());
+      if (reflectionEntry == _reflection_map.map.end())
+        throw std::runtime_error((boost::format("field %1% not found in type %2%") % _currentName % typeid(ReflectableObject).name()).str());
       else
-	return reflectionEntry->second;
+        return reflectionEntry->second;
     }
-    
+
     void Default() {}
     virtual void Null() { _lookingForName = true; }
     virtual void Bool(bool value)
@@ -744,7 +734,7 @@ std::unique_ptr<BaseReaderHandler> DeserializeHandler(ReflectableObject& reflect
     }
     virtual void String(const char* value, size_t length, bool)
     {
-      if(!_lookingForName)
+      if (!_lookingForName)
         boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<std::string, ReflectableObject>(_tempStringValue.assign(value, length), _reflectable), current_field());
 
       else
@@ -755,7 +745,7 @@ std::unique_ptr<BaseReaderHandler> DeserializeHandler(ReflectableObject& reflect
     }
     virtual std::unique_ptr<BaseReaderHandler> && StartObject(std::unique_ptr<BaseReaderHandler> && result)
     {
-      if(!_lookingForName)
+      if (!_lookingForName)
         boost::apply_visitor(typename ObjectDeserializationVisitor::template type<ReflectableObject>(result, _reflectable), current_field());
 
       _lookingForName = true;
@@ -765,14 +755,14 @@ std::unique_ptr<BaseReaderHandler> DeserializeHandler(ReflectableObject& reflect
     virtual void EndObject(size_t) { Default(); }
     virtual std::unique_ptr<BaseReaderHandler> && StartArray(std::unique_ptr<BaseReaderHandler> && result)
     {
-      if(!_lookingForName)
+      if (!_lookingForName)
         boost::apply_visitor(typename DeserializationArrayReflectableVisitor::template type<ReflectableObject>(result, _reflectable), current_field());
 
       _lookingForName = true;
 
       return std::move(result);
     }
-    
+
     virtual void EndArray(size_t) { Default(); }
   };
 
@@ -816,17 +806,17 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
     auto current_field() -> decltype(std::declval<typename ReflectableObject::reflectable>().map[""])
     {
       auto reflectionEntry = _reflection_map.map.find(_currentName);
-      if(reflectionEntry == _reflection_map.map.end())
-	throw std::runtime_error((boost::format("DeserializeHandler: field %1% not found in type %2%") % _currentName % typeid(ReflectableObject).name()).str());
+      if (reflectionEntry == _reflection_map.map.end())
+        throw std::runtime_error((boost::format("DeserializeHandler: field %1% not found in type %2%") % _currentName % typeid(ReflectableObject).name()).str());
       else
-	return reflectionEntry->second;
+        return reflectionEntry->second;
     }
-    
+
     void Default() {}
     virtual void Null() { _lookingForName = true; }
     virtual void Bool(bool value)
     {
-      if(_variantReaderHandler != nullptr)
+      if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Bool(value);
       else
       {
@@ -836,7 +826,7 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
     }
     virtual void Int(int value)
     {
-      if(_variantReaderHandler != nullptr)
+      if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Int(value);
       else
       {
@@ -846,7 +836,7 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
     }
     virtual void Uint(unsigned value)
     {
-      if(_variantReaderHandler != nullptr)
+      if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Uint(value);
       else
       {
@@ -857,7 +847,7 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
     }
     virtual void Int64(int64_t value)
     {
-      if(_variantReaderHandler != nullptr)
+      if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Int64(value);
       else
       {
@@ -867,7 +857,7 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
     }
     virtual void Uint64(uint64_t value)
     {
-      if(_variantReaderHandler != nullptr)
+      if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Uint64(value);
       else
       {
@@ -878,7 +868,7 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
     }
     virtual void Double(double value)
     {
-      if(_variantReaderHandler != nullptr)
+      if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Double(value);
       else
       {
@@ -890,23 +880,23 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
     virtual void String(const char* value, size_t length, bool unnamedBool)
     {
       typedef typename decltype(_reflection_map.json_tag_map)::key_type tag_map_key_t;
-      
-      
-      if(_skipNextFieldName)
+
+
+      if (_skipNextFieldName)
       {
-	_skipNextFieldName = false;
+        _skipNextFieldName = false;
       }
-      else if(_variantReaderHandler != nullptr)
+      else if (_variantReaderHandler != nullptr)
         _variantReaderHandler->String(value, length, unnamedBool);
       else
       {
-        if(!_lookingForName)
+        if (!_lookingForName)
         {
           boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<std::string, ReflectableObject>(_tempStringValue.assign(value, length), _reflectable), current_field());
 
-          if(_reflection_map.json_tag_source == _currentName)
+          if (_reflection_map.json_tag_source == _currentName)
           {
-	    _skipNextFieldName = true;
+            _skipNextFieldName = true;
             _reflectable.*_reflection_map.json_tag_target = _reflection_map.json_tag_map[_reflectable.*boost::get<tag_map_key_t ReflectableObject::*>(current_field())];
 
             boost::apply_visitor(VariantDeserializationVisitor<PrimativeDeserializationVisitor, ObjectDeserializationVisitor, ReflectableObject>(_variantReaderHandler), _reflectable.*_reflection_map.json_tag_target);
@@ -920,37 +910,37 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
     }
     virtual std::unique_ptr<BaseReaderHandler> && StartObject(std::unique_ptr<BaseReaderHandler> && result)
     {
-      if(_variantReaderHandler != nullptr)
+      if (_variantReaderHandler != nullptr)
       {
         _variantReaderHandler->StartObject(std::move(std::unique_ptr<BaseReaderHandler>(nullptr)));
-	result = std::move(_variantReaderHandler);
-	_variantReaderHandler = nullptr;
-	return std::move(result);
+        result = std::move(_variantReaderHandler);
+        _variantReaderHandler = nullptr;
+        return std::move(result);
       }
       else
       {
-        if(!_lookingForName)
+        if (!_lookingForName)
           boost::apply_visitor(typename ObjectDeserializationVisitor::template type<ReflectableObject>(result, _reflectable), current_field());
 
         _lookingForName = true;
         return std::move(result);
       }
     }
-    virtual void EndObject(size_t) 
-    { 
+    virtual void EndObject(size_t)
+    {
       //_variantReaderHandler = nullptr;
-      Default(); 
+      Default();
     }
     virtual std::unique_ptr<BaseReaderHandler> && StartArray(std::unique_ptr<BaseReaderHandler> && result)
     {
-      if(_variantReaderHandler != nullptr)
+      if (_variantReaderHandler != nullptr)
         return std::move(_variantReaderHandler->StartArray(std::move(result)));
       else
       {
-        if(!_lookingForName)
-	{
+        if (!_lookingForName)
+        {
           boost::apply_visitor(typename DeserializationArrayReflectableVisitor::template type<ReflectableObject>(result, _reflectable), current_field());
-	}
+        }
 
         _lookingForName = true;
 
@@ -967,7 +957,5 @@ template <typename PrimativeDeserializationVisitor, typename ObjectDeserializati
 std::unique_ptr<BaseReaderHandler> DeserializeHandler(ReflectableObject& reflectable)
 {
   return DeserializeHandler < PrimativeDeserializationVisitor,
-                   ObjectDeserializationVisitor, ReflectableObject > (reflectable, 0);
+    ObjectDeserializationVisitor, ReflectableObject >(reflectable, 0);
 }
-
-#endif

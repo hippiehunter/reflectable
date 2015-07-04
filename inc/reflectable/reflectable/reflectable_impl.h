@@ -1,5 +1,4 @@
-#ifndef REFLECTABLE_IMPL_H
-#define REFLECTABLE_IMPL_H
+#pragma once
 //this must be valid on your compiler/platform of choice or we cant do our macro magic
 #define BOOST_PP_VARIADICS 1
 #define DEFINE_REFLECTION
@@ -87,13 +86,9 @@ constexpr const char* strip_underscore(const char* str)
 #define REFLECT_EACH_4(r, data, i, x) noLookup.push_back(std::make_pair(strip_underscore(BOOST_PP_STRINGIZE(STRIP(x))), data::reflectable::field_type_variant_t(&data::STRIP(x))));
 #define REFLECT_EACH_4a(r, data, i, x) map[strip_underscore(BOOST_PP_STRINGIZE(STRIP(x)))] = data::reflectable::field_type_variant_t(&data::STRIP(x)); 
 
-#define REFLECT_EACH_5(r, data, i, x) \
-	BOOST_PP_EXPR_IF(BOOST_PP_GREATER(2, BOOST_PP_TUPLE_SIZE(x)),\
-	BOOST_PP_SEQ_FOR_EACH_I(REFLECT_EACH_6, (STRIP(X), data), BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_EAT(2)x)))
-	
-#define REFLECT_EACH_6(r, data, i, x) BOOST_PP_SEQ_HEAD(x); 
 
-#define REFLECT_EACH_ATTRIBUTE_DEF(r, data, x) STRIP_PARENS(x);
+
+#define REFLECT_EACH_ATTRIBUTE_DEF(r, data, x) STRIP_PARENS(x); \
 
 #define REFLECT_EACH(r, data, i, x) \
 template<class Self> \
@@ -130,7 +125,6 @@ struct field_data<i, Self> \
 	{ \
 		BOOST_PP_SEQ_FOR_EACH_I(REFLECT_EACH_4, BOOST_PP_SEQ_HEAD(this_lst), BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))\
 		BOOST_PP_SEQ_FOR_EACH_I(REFLECT_EACH_4a, BOOST_PP_SEQ_HEAD(this_lst), BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)) \
-		BOOST_PP_SEQ_FOR_EACH_I(REFLECT_EACH_5, BOOST_PP_SEQ_HEAD(this_lst),  BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))\
 	}};
 	
 //
@@ -184,5 +178,3 @@ void visit_each(C & c, Action a)
     field_visitor<C, Action> visitor(a, c);
     boost::mpl::for_each<range>(visitor);
 }
-
-#endif
