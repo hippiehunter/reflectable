@@ -15,6 +15,36 @@
 #include "rapidjson/reader.h"
 #include "rapidjson/writer.h"
 
+
+#define GENERATE_HAS_MEMBER(member)                                               \
+                                                                                  \
+template < class T >                                                              \
+class HasMember_##member                                                          \
+{                                                                                 \
+private:                                                                          \
+    using Yes = char[2];                                                          \
+    using  No = char[1];                                                          \
+                                                                                  \
+    struct Fallback { int member; };                                              \
+    struct Derived : T, Fallback { };                                             \
+                                                                                  \
+    template < class U >                                                          \
+    static No& test ( decltype(U::member)* );                                     \
+    template < typename U >                                                       \
+    static Yes& test ( U* );                                                      \
+                                                                                  \
+public:                                                                           \
+    static constexpr bool RESULT = sizeof(test<Derived>(nullptr)) == sizeof(Yes); \
+};                                                                                \
+                                                                                  \
+template < class T >                                                              \
+struct has_member_##member                                                        \
+: public std::integral_constant<bool, HasMember_##member<T>::RESULT>              \
+{ };
+
+
+GENERATE_HAS_MEMBER(reflectable);
+
 //tagged json (need to deal with some sort of work buffer or abstract class + allocation mechanism
 //curently not doing any memory managment since everything is assumed to be allocated on the stack
 //might just need to bite the bullet and implement unique_ptr members then we can stack alloc the base
@@ -76,7 +106,7 @@ struct DeserializationReflectableVisitor
     }
 
     template<typename Tn, typename T2>
-    auto impl(Tn ReflectableObject::* data, int, typename std::enable_if<std::is_arithmetic<Tn>::value>::type* dummy = 0, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy2 = 0) const -> void
+    auto impl(Tn ReflectableObject::* data, int, typename std::enable_if<std::is_arithmetic<Tn>::value>::type* dummy = 0, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy2 = 0, typename std::enable_if<!std::is_same<Tn, T2>::value>::type* dummy3 = 0) const -> void
     {
       _reflectable.*data = boost::numeric::converter<Tn, T>::convert(_value);
     }
@@ -194,7 +224,7 @@ struct DeserializationObjectReflectableVisitor
     }
 
     template<typename Tn>
-    void impl2(Tn ReflectableObject::* data, unsigned char) const { }
+    void impl2(Tn ReflectableObject::* data, unsigned char, typename std::enable_if<!has_member_reflectable<Tn>::value>::type* dummy1 = 0) const { }
 
     template<typename Tn>
     auto operator()(Tn ReflectableObject::* data) const -> decltype(std::declval<typename DeserializationObjectReflectableVisitor::template type<ReflectableObject>*>()->impl(std::declval<Tn ReflectableObject::*>(), 0))
