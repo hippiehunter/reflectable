@@ -18,7 +18,7 @@
 
 #define GENERATE_HAS_MEMBER(member)                                               \
                                                                                   \
-template < class T >                                                              \
+template < typename T >                                                              \
 class HasMember_##member                                                          \
 {                                                                                 \
 private:                                                                          \
@@ -37,7 +37,7 @@ public:                                                                         
     static constexpr bool RESULT = sizeof(test<Derived>(nullptr)) == sizeof(Yes); \
 };                                                                                \
                                                                                   \
-template < class T >                                                              \
+template < typename T >                                                              \
 struct has_member_##member                                                        \
 : public std::integral_constant<bool, HasMember_##member<T>::RESULT>              \
 { };
@@ -102,7 +102,7 @@ struct DeserializationReflectableVisitor
     template<typename Tn, typename T2>
     auto impl(Tn ReflectableObject::* data, int, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy = 0) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
     {
-      _reflectable.*data = std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::inflatable::inflate_t, T2>::convert(_value));
+      _reflectable.*data = std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::typename inflatable::inflate_t, T2>::convert(_value));
     }
 
     template<typename Tn, typename T2>
@@ -145,7 +145,7 @@ struct ArrayDeserializationReflectableVisitor
     template<typename Tn, typename T2>
     auto impl(int, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy = 0) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
     {
-      _reflectable.push_back(typename std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::inflatable::inflate_t, T2>::convert(_value)));
+      _reflectable.push_back(typename std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::typename inflatable::inflate_t, T2>::convert(_value)));
     }
 
     template<typename Tn, typename T2>
@@ -224,7 +224,10 @@ struct DeserializationObjectReflectableVisitor
     }
 
     template<typename Tn>
-    void impl2(Tn ReflectableObject::* data, unsigned char, typename std::enable_if<!has_member_reflectable<Tn>::value>::type* dummy1 = 0) const { }
+    auto impl2(Tn ReflectableObject::* data, unsigned char) const -> decltype(std::declval<typename Tn::iterator>,void())
+    {
+      _value = DeserializeArrayHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(_reflectable.*data);
+    }
 
     template<typename Tn>
     auto operator()(Tn ReflectableObject::* data) const -> decltype(std::declval<typename DeserializationObjectReflectableVisitor::template type<ReflectableObject>*>()->impl(std::declval<Tn ReflectableObject::*>(), 0))
@@ -237,6 +240,10 @@ struct DeserializationObjectReflectableVisitor
     void operator()(unsigned ReflectableObject::* data) const { }
     void operator()(uint64_t ReflectableObject::* data) const { }
     void operator()(int64_t ReflectableObject::* data) const { }
+    void operator()(int8_t ReflectableObject::* data) const {}
+    void operator()(uint8_t ReflectableObject::* data) const {}
+    void operator()(int16_t ReflectableObject::* data) const {}
+    void operator()(uint16_t ReflectableObject::* data) const {}
     void operator()(double ReflectableObject::* data) const { }
     void operator()(bool ReflectableObject::* data) const { }
   };
@@ -292,6 +299,10 @@ struct DeserializationObjectArrayReflectableVisitor
     void operator()(unsigned ReflectableObject::* data) const { }
     void operator()(uint64_t ReflectableObject::* data) const { }
     void operator()(int64_t ReflectableObject::* data) const { }
+    void operator()(int8_t ReflectableObject::* data) const {}
+    void operator()(uint8_t ReflectableObject::* data) const {}
+    void operator()(int16_t ReflectableObject::* data) const {}
+    void operator()(uint16_t ReflectableObject::* data) const {}
     void operator()(double ReflectableObject::* data) const { }
     void operator()(bool ReflectableObject::* data) const { }
   };
@@ -335,6 +346,10 @@ struct DeserializationArrayReflectableVisitor
     void operator()(unsigned ReflectableObject::* data) const { }
     void operator()(uint64_t ReflectableObject::* data) const { }
     void operator()(int64_t ReflectableObject::* data) const { }
+    void operator()(int8_t ReflectableObject::* data) const {}
+    void operator()(uint8_t ReflectableObject::* data) const {}
+    void operator()(int16_t ReflectableObject::* data) const {}
+    void operator()(uint16_t ReflectableObject::* data) const {}
     void operator()(double ReflectableObject::* data) const { }
     void operator()(bool ReflectableObject::* data) const { }
   };
