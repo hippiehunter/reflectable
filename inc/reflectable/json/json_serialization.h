@@ -145,7 +145,7 @@ struct ArrayDeserializationReflectableVisitor
     template<typename Tn, typename T2>
     auto impl(int, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy = 0) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
     {
-      _reflectable.push_back(typename std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::typename inflatable::inflate_t, T2>::convert(_value)));
+      _reflectable.push_back(typename std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::inflatable::inflate_t, T2>::convert(_value)));
     }
 
     template<typename Tn, typename T2>
