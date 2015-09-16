@@ -102,7 +102,7 @@ struct DeserializationReflectableVisitor
     template<typename Tn, typename T2>
     auto impl(Tn ReflectableObject::* data, int, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy = 0) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
     {
-      _reflectable.*data = std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::typename inflatable::inflate_t, T2>::convert(_value));
+      _reflectable.*data = std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::inflatable::inflate_t, T2>::convert(_value));
     }
 
     template<typename Tn, typename T2>
