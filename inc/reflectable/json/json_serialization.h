@@ -44,7 +44,6 @@ struct has_member_##member                                                      
 
 
 GENERATE_HAS_MEMBER(reflectable);
-
 //tagged json (need to deal with some sort of work buffer or abstract class + allocation mechanism
 //curently not doing any memory managment since everything is assumed to be allocated on the stack
 //might just need to bite the bullet and implement unique_ptr members then we can stack alloc the base
@@ -100,7 +99,7 @@ struct DeserializationReflectableVisitor
     type(const T& value, ReflectableObject& reflectable) : _value(value), _reflectable(reflectable) {}
 
     template<typename Tn, typename T2>
-    auto impl(Tn ReflectableObject::* data, int, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy = 0) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
+    auto impl(Tn ReflectableObject::* data, int, typename std::enable_if<std::is_integral<T2>::value>::type* dummy = 0) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
     {
       _reflectable.*data = std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::inflatable::inflate_t, T2>::convert(_value));
     }
@@ -109,6 +108,12 @@ struct DeserializationReflectableVisitor
     auto impl(Tn ReflectableObject::* data, int, typename std::enable_if<std::is_arithmetic<Tn>::value>::type* dummy = 0, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy2 = 0, typename std::enable_if<!std::is_same<Tn, T2>::value>::type* dummy3 = 0) const -> void
     {
       _reflectable.*data = boost::numeric::converter<Tn, T>::convert(_value);
+    }
+
+    template<typename Tn, typename T2>
+    auto impl(Tn ReflectableObject::* data, int, typename std::enable_if<std::is_enum<Tn>::value>::type* dummy = 0, typename std::enable_if<std::is_integral<T2>::value>::type* dummy2 = 0, typename std::enable_if<!std::is_same<Tn, T2>::value>::type* dummy3 = 0) const -> void
+    {
+        _reflectable.*data = static_cast<Tn>(_value);
     }
 
     template<typename Tn, typename T2>
@@ -145,11 +150,11 @@ struct ArrayDeserializationReflectableVisitor
     template<typename Tn, typename T2>
     auto impl(int, typename std::enable_if<std::is_arithmetic<T2>::value>::type* dummy = 0) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
     {
-      _reflectable.push_back(typename std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::inflatable::inflate_t, T2>::convert(_value)));
+      _reflectable.push_back(std::remove_pointer<Tn>::type::inflatable::inflate(boost::numeric::converter<typename std::remove_pointer<Tn>::type::inflatable::inflate_t, T2>::convert(_value)));
     }
 
     template<typename Tn, typename T2>
-    auto impl(int) const -> typename std::enable_if<boost::type_traits::ice_and<std::is_arithmetic<Tn>::value, std::is_arithmetic<T2>::value>::value, decltype(void())>::type
+    auto impl(int) const -> decltype(std::declval<typename std::is_arithmetic<Tn>::value>(), std::declval<typename std::is_arithmetic<T2>::value>(), void())
     {
       _reflectable.push_back(boost::numeric::converter<Tn, T>::convert(_value));
     }
@@ -209,6 +214,12 @@ struct DeserializationObjectReflectableVisitor
     auto impl2(Tn ReflectableObject::* data, unsigned int) const -> decltype(std::declval<typename Tn::reflectable>(), void())
     {
       _value = DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(_reflectable.*data);
+    }
+
+    template<typename Tn>
+    auto impl2(Tn ReflectableObject::* data, char) const -> decltype(std::declval<typename Tn::inflatable>(), void())
+    {
+        _value = DeserializeHandler<DeserializationReflectableVisitor, DeserializationObjectReflectableVisitor>(_reflectable);
     }
 
     template<typename Tn, typename ReflObj>
@@ -355,6 +366,7 @@ struct DeserializationArrayReflectableVisitor
   };
 };
 
+
 template<typename Writer, typename ReflectableObject>
 class SerializationReflectableVisitor : public boost::static_visitor<>
 {
@@ -434,6 +446,12 @@ public:
   auto impl(Tn ReflectableObject::* data, int) const -> decltype(std::declval<std::remove_pointer<Tn>::type::inflatable>(), void())
   {
     this->operator()(std::remove_pointer<Tn>::type::inflatable::deflate(_reflectable.*data));
+  }
+
+  template<typename Tn>
+  auto impl(Tn ReflectableObject::* data, int, typename std::enable_if<std::is_enum<Tn>::value>::type* dummy = 0) const -> void
+  {
+      this->operator()(static_cast<int>(_reflectable.*data));
   }
 
   class VariantSerializationVisitor : public boost::static_visitor<>
@@ -516,7 +534,7 @@ public:
   }
 
   template<typename Tn>
-  auto impl(Tn& data, unsigned int) const -> decltype(std::declval<std::remove_pointer<Tn>::type::inflatable>(), void())
+  auto operator()(Tn& data) const -> decltype(typename std::declval<std::remove_pointer<Tn>::type::inflatable>(), void())
   {
     operator()(std::remove_pointer<Tn>::type::inflatable::deflate(data));
   }
@@ -534,7 +552,7 @@ public:
   };
 
   template<typename Tn>
-  auto impl(Tn& data, int) const ->
+  auto impl(Tn& data, int, ) const ->
     decltype(std::declval<typename Tn::types>(), void())
   {
     boost::apply_visitor(VariantSerializationVisitor(_writer), data);

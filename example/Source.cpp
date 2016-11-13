@@ -10,7 +10,11 @@
 #include <vector>
 #include <iostream>
 
-
+enum class Concentration
+{
+    STUFF,
+    OTHER_STUFF
+};
 
 struct thing
 {
@@ -33,6 +37,7 @@ struct thing
   ENABLE_REFLECTION
   std::string _id;
   std::string kind;
+  Concentration conc;
   boost::variant<link, listing> data;
 };
 
@@ -44,6 +49,7 @@ REFLECTABLE(
   ((struct json_tagged {})),
   (std::string, _id),
   (std::string, kind),
+  (Concentration, conc),
   (decltype(thing::data), data))
 
 REFLECTABLE(

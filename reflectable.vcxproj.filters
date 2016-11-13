@@ -20,9 +20,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="inc\reflectable\boost\mpl\list\list60.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -71,5 +68,8 @@
     <ClInclude Include="inc\reflectable\reflectable\reflectable_impl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
