@@ -552,14 +552,14 @@ public:
   };
 
   template<typename Tn>
-  auto impl(Tn& data, int, ) const ->
+  auto impl(Tn& data, int) const ->
     decltype(std::declval<typename Tn::types>(), void())
   {
     boost::apply_visitor(VariantSerializationVisitor(_writer), data);
   }
 
   template<typename Tn>
-  auto operator()(Tn& data) const -> decltype(std::declval<SerializationArrayReflectableVisitor<Writer>*>()->template impl<Tn>(std::declval<Tn>(), 0))
+  auto operator()(Tn& data) const -> void
   {
     impl(data, 0);
   }
