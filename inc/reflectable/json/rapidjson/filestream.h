@@ -2,6 +2,7 @@
 #define RAPIDJSON_GENERICREADSTREAM_H_
 
 #include "rapidjson.h"
+#include "stream.h"
 #include <iostream>
 
 namespace rapidjson {

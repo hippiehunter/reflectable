@@ -62,18 +62,20 @@ GENERATE_HAS_MEMBER(reflectable);
 
 struct BaseReaderHandler
 {
-  virtual void Null() = 0;
-  virtual void Bool(bool) = 0;
-  virtual void Int(int) = 0;
-  virtual void Uint(unsigned) = 0;
-  virtual void Int64(int64_t) = 0;
-  virtual void Uint64(uint64_t) = 0;
-  virtual void Double(double) = 0;
-  virtual void String(const char*, size_t, bool) = 0;
+  bool Key(const char* val, size_t len, bool bl) { return String(val, len, bl); }
+  virtual bool Null() = 0;
+  virtual bool Bool(bool) = 0;
+  virtual bool Int(int) = 0;
+  virtual bool Uint(unsigned) = 0;
+  virtual bool Int64(int64_t) = 0;
+  virtual bool Uint64(uint64_t) = 0;
+  bool RawNumber(const char* str, size_t length, bool copy) { throw std::runtime_error("not supported"); }
+  virtual bool Double(double) = 0;
+  virtual bool String(const char*, size_t, bool) = 0;
   virtual std::unique_ptr<BaseReaderHandler> && StartObject(std::unique_ptr<BaseReaderHandler> &&) = 0;
-  virtual void EndObject(size_t) = 0;
+  virtual bool EndObject(size_t) = 0;
   virtual std::unique_ptr<BaseReaderHandler> && StartArray(std::unique_ptr<BaseReaderHandler> &&) = 0;
-  virtual void EndArray(size_t) = 0;
+  virtual bool EndArray(size_t) = 0;
 };
 
 namespace rapidjson
@@ -607,28 +609,32 @@ void Deserialize(Stream& stream, std::unique_ptr<BaseReaderHandler> && handler)
     {
       this->_handlerStack.push(std::move(handler));
     }
-
-    void Null() { this->_handlerStack.top()->Null(); }
-    void Bool(bool value) { this->_handlerStack.top()->Bool(value); }
-    void Int(int value) { this->_handlerStack.top()->Int(value); }
-    void Uint(unsigned value) { this->_handlerStack.top()->Uint(value); }
-    void Int64(int64_t value) { this->_handlerStack.top()->Int64(value); }
-    void Uint64(uint64_t value) { this->_handlerStack.top()->Uint64(value); }
-    void Double(double value) { this->_handlerStack.top()->Double(value); }
-    void String(const char* value, size_t length, bool b)
+    bool RawNumber(const char* str, size_t length, bool copy) { throw std::runtime_error("not supported"); }
+    bool Key(const char* val, size_t len, bool bl) { return String(val, len, bl); }
+    bool Null() { this->_handlerStack.top()->Null(); return true; }
+    bool Bool(bool value) { this->_handlerStack.top()->Bool(value); return true;}
+    bool Int(int value) { this->_handlerStack.top()->Int(value); return true;}
+    bool Uint(unsigned value) { this->_handlerStack.top()->Uint(value); return true;}
+    bool Int64(int64_t value) { this->_handlerStack.top()->Int64(value); return true;}
+    bool Uint64(uint64_t value) { this->_handlerStack.top()->Uint64(value); return true;}
+    bool Double(double value) { this->_handlerStack.top()->Double(value); return true;}
+    bool String(const char* value, size_t length, bool b)
     {
       auto&& topHandler = this->_handlerStack.top();
       auto ptr = topHandler.get();
       ptr->String(value, length, b);
+      return true;
     }
-    void StartObject()
+    bool StartObject()
     {
       auto result = std::move(this->_handlerStack.top()->StartObject(std::unique_ptr<BaseReaderHandler>(nullptr)));
 
       if (result)
         this->_handlerStack.push(std::move(result));
+
+      return true;
     }
-    void EndObject(size_t size)
+    bool EndObject(size_t size)
     {
       if (this->_handlerStack.top())
       {
@@ -637,14 +643,18 @@ void Deserialize(Stream& stream, std::unique_ptr<BaseReaderHandler> && handler)
       }
       else
         throw std::runtime_error("mismatched object");
+
+      return true;
     }
-    void StartArray()
+    bool StartArray()
     {
       auto result = std::move(this->_handlerStack.top()->StartArray(std::unique_ptr<BaseReaderHandler>(nullptr)));
       if (result)
         this->_handlerStack.push(std::move(result));
+
+      return true;
     }
-    void EndArray(size_t size)
+    bool EndArray(size_t size)
     {
       if (this->_handlerStack.top())
       {
@@ -653,6 +663,8 @@ void Deserialize(Stream& stream, std::unique_ptr<BaseReaderHandler> && handler)
       }
       else
         throw std::runtime_error("mismatched array");
+
+      return true;
     }
   };
   rapidjson::Reader reader;
@@ -668,34 +680,41 @@ struct DeserializeArrayHandlerReaderHandler : public BaseReaderHandler
   std::string _tempStringValue;
 
   void Default() {}
-  virtual void Null() {  }
-  virtual void Bool(bool value)
+  virtual bool Null() { return true; }
+  virtual bool Bool(bool value)
   {
     typename ArrayDeserializationReflectableVisitor::template type<bool, ReflectableArray>(value, _reflectable)(static_cast<typename ReflectableArray::value_type ReflectableArray::*>(nullptr));
+    return true;
   }
-  virtual void Int(int value)
+  virtual bool Int(int value)
   {
     typename ArrayDeserializationReflectableVisitor::template type<int, ReflectableArray>(value, _reflectable)(static_cast<typename ReflectableArray::value_type ReflectableArray::*>(nullptr));
+    return true;
   }
-  virtual void Uint(unsigned value)
+  virtual bool Uint(unsigned value)
   {
     typename ArrayDeserializationReflectableVisitor::template type<unsigned, ReflectableArray>(value, _reflectable)(static_cast<typename ReflectableArray::value_type ReflectableArray::*>(nullptr));
+    return true;
   }
-  virtual void Int64(int64_t value)
+  virtual bool Int64(int64_t value)
   {
     typename ArrayDeserializationReflectableVisitor::template type<int64_t, ReflectableArray>(value, _reflectable)(static_cast<typename ReflectableArray::value_type ReflectableArray::*>(nullptr));
+    return true;
   }
-  virtual void Uint64(uint64_t value)
+  virtual bool Uint64(uint64_t value)
   {
     typename ArrayDeserializationReflectableVisitor::template type<uint64_t, ReflectableArray>(value, _reflectable)(static_cast<typename ReflectableArray::value_type ReflectableArray::*>(nullptr));
+    return true;
   }
-  virtual void Double(double value)
+  virtual bool Double(double value)
   {
     typename ArrayDeserializationReflectableVisitor::template type<double, ReflectableArray>(value, _reflectable)(static_cast<typename ReflectableArray::value_type ReflectableArray::*>(nullptr));
+    return true;
   }
-  virtual void String(const char* value, size_t length, bool)
+  virtual bool String(const char* value, size_t length, bool)
   {
     typename ArrayDeserializationReflectableVisitor::template type<std::string, ReflectableArray>(_tempStringValue.assign(value, length), _reflectable)(static_cast<typename ReflectableArray::value_type ReflectableArray::*>(nullptr));
+    return true;
   }
 
   template<typename ReflArray>
@@ -721,14 +740,14 @@ struct DeserializeArrayHandlerReaderHandler : public BaseReaderHandler
   }
 
 
-  virtual void EndObject(size_t) { Default(); }
+  virtual bool EndObject(size_t) { Default(); return true;}
   virtual std::unique_ptr<BaseReaderHandler> && StartArray(std::unique_ptr<BaseReaderHandler> && result)
   {
     typename DeserializationArrayReflectableVisitor::template type<ReflectableArray>(result, _reflectable)(static_cast<typename ReflectableArray::value_type ReflectableArray::*>(nullptr));
 
     return std::move(result);
   }
-  virtual void EndArray(size_t) { Default(); }
+  virtual bool EndArray(size_t) { Default(); return true;}
 };
 
 template <typename PrimativeDeserializationVisitor, typename ObjectDeserializationVisitor, typename ReflectableArray>
@@ -761,41 +780,49 @@ std::unique_ptr<BaseReaderHandler> DeserializeHandler(ReflectableObject& reflect
     }
 
     void Default() {}
-    virtual void Null() { _lookingForName = true; }
-    virtual void Bool(bool value)
+    virtual bool Null() { _lookingForName = true; return true;
+    }
+    virtual bool Bool(bool value)
     {
       /*if(_inArray)
         typename PrimativeDeserializationVisitor::type<bool, ReflectableObject>(value, _reflectable)(static_cast<bool ReflectableObject::*>(nullptr));
       else*/
       boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<bool, ReflectableObject>(value, _reflectable), current_field());
       _lookingForName = true;
+      return true;
     }
-    virtual void Int(int value)
+    virtual bool Int(int value)
     {
       boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<int, ReflectableObject>(value, _reflectable), current_field());
       _lookingForName = true;
+      return true;
     }
-    virtual void Uint(unsigned value)
+    virtual bool Uint(unsigned value)
     {
       boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<unsigned, ReflectableObject>(value, _reflectable), current_field());
       _lookingForName = true;
+      return true;
     }
-    virtual void Int64(int64_t value)
+    virtual bool Int64(int64_t value)
     {
       boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<int64_t, ReflectableObject>(value, _reflectable), current_field());
       _lookingForName = true;
+      return true;
     }
-    virtual void Uint64(uint64_t value)
+    virtual bool Uint64(uint64_t value)
     {
       boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<uint64_t, ReflectableObject>(value, _reflectable), current_field());
       _lookingForName = true;
+      return true;
     }
-    virtual void Double(double value)
+    virtual bool Double(double value)
     {
       boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<double, ReflectableObject>(value, _reflectable), current_field());
       _lookingForName = true;
+      return true;
     }
-    virtual void String(const char* value, size_t length, bool)
+
+    virtual bool String(const char* value, size_t length, bool)
     {
       if (!_lookingForName)
         boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<std::string, ReflectableObject>(_tempStringValue.assign(value, length), _reflectable), current_field());
@@ -804,7 +831,7 @@ std::unique_ptr<BaseReaderHandler> DeserializeHandler(ReflectableObject& reflect
         _currentName.assign(value, length);
 
       _lookingForName = !_lookingForName;
-
+      return true;
     }
     virtual std::unique_ptr<BaseReaderHandler> && StartObject(std::unique_ptr<BaseReaderHandler> && result)
     {
@@ -815,7 +842,7 @@ std::unique_ptr<BaseReaderHandler> DeserializeHandler(ReflectableObject& reflect
 
       return std::move(result);
     }
-    virtual void EndObject(size_t) { Default(); }
+    virtual bool EndObject(size_t) { Default(); return true; }
     virtual std::unique_ptr<BaseReaderHandler> && StartArray(std::unique_ptr<BaseReaderHandler> && result)
     {
       if (!_lookingForName)
@@ -826,7 +853,7 @@ std::unique_ptr<BaseReaderHandler> DeserializeHandler(ReflectableObject& reflect
       return std::move(result);
     }
 
-    virtual void EndArray(size_t) { Default(); }
+    virtual bool EndArray(size_t) { Default(); return true; }
   };
 
   return std::unique_ptr<BaseReaderHandler>(new ReaderHandler(reflectable, reflection_map));
@@ -876,8 +903,9 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
     }
 
     void Default() {}
-    virtual void Null() { _lookingForName = true; }
-    virtual void Bool(bool value)
+    virtual bool Null() { _lookingForName = true; return true;
+    }
+    virtual bool Bool(bool value)
     {
       if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Bool(value);
@@ -886,8 +914,9 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
         boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<bool, ReflectableObject>(value, _reflectable), current_field());
         _lookingForName = true;
       }
+      return true;
     }
-    virtual void Int(int value)
+    virtual bool Int(int value)
     {
       if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Int(value);
@@ -896,8 +925,9 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
         boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<int, ReflectableObject>(value, _reflectable), current_field());
         _lookingForName = true;
       }
+      return true;
     }
-    virtual void Uint(unsigned value)
+    virtual bool Uint(unsigned value)
     {
       if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Uint(value);
@@ -907,8 +937,9 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
         boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<unsigned, ReflectableObject>(value, _reflectable), current_field());
         _lookingForName = true;
       }
+      return true;
     }
-    virtual void Int64(int64_t value)
+    virtual bool Int64(int64_t value)
     {
       if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Int64(value);
@@ -917,8 +948,9 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
         boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<int64_t, ReflectableObject>(value, _reflectable), current_field());
         _lookingForName = true;
       }
+      return true;
     }
-    virtual void Uint64(uint64_t value)
+    virtual bool Uint64(uint64_t value)
     {
       if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Uint64(value);
@@ -928,8 +960,9 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
         boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<uint64_t, ReflectableObject>(value, _reflectable), current_field());
         _lookingForName = true;
       }
+      return true;
     }
-    virtual void Double(double value)
+    virtual bool Double(double value)
     {
       if (_variantReaderHandler != nullptr)
         _variantReaderHandler->Double(value);
@@ -938,9 +971,10 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
         boost::apply_visitor(typename PrimativeDeserializationVisitor::template type<double, ReflectableObject>(value, _reflectable), current_field());
         _lookingForName = true;
       }
+      return true;
     }
 
-    virtual void String(const char* value, size_t length, bool unnamedBool)
+    virtual bool String(const char* value, size_t length, bool unnamedBool)
     {
       typedef typename decltype(_reflection_map.json_tag_map)::key_type tag_map_key_t;
 
@@ -970,6 +1004,7 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
 
         _lookingForName = !_lookingForName;
       }
+      return true;
     }
     virtual std::unique_ptr<BaseReaderHandler> && StartObject(std::unique_ptr<BaseReaderHandler> && result)
     {
@@ -989,10 +1024,11 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
         return std::move(result);
       }
     }
-    virtual void EndObject(size_t)
+    virtual bool EndObject(size_t)
     {
       //_variantReaderHandler = nullptr;
       Default();
+      return true;
     }
     virtual std::unique_ptr<BaseReaderHandler> && StartArray(std::unique_ptr<BaseReaderHandler> && result)
     {
@@ -1010,7 +1046,7 @@ auto DeserializeHandler(ReflectableObject& reflectable, int) -> decltype(std::de
         return std::move(result);
       }
     }
-    virtual void EndArray(size_t) { Default(); }
+    virtual bool EndArray(size_t) { Default(); return true; }
   };
 
   return std::unique_ptr<BaseReaderHandler>(new ReaderHandler(reflectable, reflection_map));
