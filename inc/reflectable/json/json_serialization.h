@@ -156,9 +156,9 @@ struct ArrayDeserializationReflectableVisitor
     }
 
     template<typename Tn, typename T2>
-    auto impl(int) const -> decltype(std::declval<typename std::is_arithmetic<Tn>::value>(), std::declval<typename std::is_arithmetic<T2>::value>(), void())
+    auto impl(int) const -> typename std::enable_if<std::is_convertible<T2, Tn>::value, typename std::enable_if<std::is_arithmetic<T2>::value, typename std::enable_if<std::is_arithmetic<Tn>::value, decltype(void())>::type>::type>::type
     {
-      _reflectable.push_back(boost::numeric::converter<Tn, T>::convert(_value));
+      _reflectable.push_back(boost::numeric_cast<Tn>(_value));
     }
 
     template<typename Tn, typename T2>
@@ -181,7 +181,7 @@ struct ArrayDeserializationReflectableVisitor
     }
 
     template<typename Tn>
-    auto operator()(Tn ReflectableArray::* data) const -> decltype(std::declval<type<T, ReflectableArray>*>()->template impl<Tn, T>(0))
+    auto operator()(Tn ReflectableArray::* data) const -> void
     {
       impl<Tn, T>(0);
     }
