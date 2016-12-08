@@ -9,6 +9,7 @@
 #include <utility>
 #include <stdexcept>
 #include <boost/numeric/conversion/converter.hpp>
+#include <boost/numeric/conversion/cast.hpp>
 #include <boost/variant/static_visitor.hpp>
 #include <boost/format.hpp>
 #include "rapidjson/rapidjson.h"
@@ -536,7 +537,7 @@ public:
   }
 
   template<typename Tn>
-  auto operator()(Tn& data) const -> decltype(typename std::declval<std::remove_pointer<Tn>::type::inflatable>(), void())
+  auto operator()(Tn& data) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
   {
     operator()(std::remove_pointer<Tn>::type::inflatable::deflate(data));
   }
