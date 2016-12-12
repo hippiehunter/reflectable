@@ -407,11 +407,57 @@ public:
     _writer.Double(_reflectable.*data);
   }
 
-  void impl(std::string ReflectableObject::* data) const
+  void impl(std::string ReflectableObject::* data, int) const
   {
     _writer.String((_reflectable.*data).c_str(), (_reflectable.*data).size());
   }
 
+  template<typename REFL>
+  void operator()(std::string REFL::* data) const
+  {
+    auto& tmpData = _reflectable.*data;
+    _writer.String(tmpData.c_str(), tmpData.size());
+  }
+
+  template<typename REFL>
+  void operator()(bool REFL::* data) const
+  {
+    _writer.Bool(_reflectable.*data);
+  }
+
+  template<typename REFL>
+  void operator()(int REFL::* data) const
+  {
+    _writer.Int(_reflectable.*data);
+  }
+
+  template<typename REFL>
+  void operator()(unsigned REFL::* data) const
+  {
+    _writer.Uint(_reflectable.*data);
+  }
+
+  template<typename REFL>
+  void operator()(int64_t REFL::* data) const
+  {
+    _writer.Int64(_reflectable.*data);
+  }
+
+  template<typename REFL>
+  void operator()(uint64_t REFL::* data) const
+  {
+    _writer.Uint64(_reflectable.*data);
+  }
+
+  void operator()(const std::string& data) const
+  {
+    _writer.String(data.c_str(), data.size());
+  }
+
+  void operator()(bool data) const
+  {
+    _writer.Bool(data);
+  }
 
   void operator()(int data) const
   {
@@ -432,6 +478,7 @@ public:
   {
     _writer.Uint64(data);
   }
+
 
   template<typename Tn>
   auto impl(Tn ReflectableObject::* data, unsigned int) const -> decltype(std::declval<typename Tn::iterator>(), void())
@@ -476,8 +523,8 @@ public:
     boost::apply_visitor(VariantSerializationVisitor(_writer), _reflectable.*data);
   }
 
-  template<typename Tn>
-  auto operator()(Tn ReflectableObject::* data) const -> decltype((std::declval<SerializationReflectableVisitor<Writer, ReflectableObject>*>())->template impl<Tn>(std::declval<Tn ReflectableObject::*>(), 0))
+  template<typename Tn, typename REFL>
+  auto operator()(Tn REFL::* data) const -> decltype((std::declval<SerializationReflectableVisitor<Writer, REFL>*>())->template impl<Tn>(std::declval<Tn REFL::*>(), 0))
   {
     impl(data, 0);
   }
@@ -537,7 +584,7 @@ public:
   }
 
   template<typename Tn>
-  auto operator()(Tn& data) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
+  auto impl(Tn& data, char) const -> decltype(std::declval<typename std::remove_pointer<Tn>::type::inflatable>(), void())
   {
     operator()(std::remove_pointer<Tn>::type::inflatable::deflate(data));
   }
