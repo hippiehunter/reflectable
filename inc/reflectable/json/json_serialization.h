@@ -43,6 +43,10 @@ struct has_member_##member                                                      
 : public std::integral_constant<bool, HasMember_##member<T>::RESULT>              \
 { };
 
+template <typename Writer, typename ReflectableObject>
+  void Serialize(Writer& writer, ReflectableObject& reflectable);
+template <typename Writer, typename ReflectableArray>
+  void SerializeArray(Writer& writer, ReflectableArray& reflectableArray);
 
 GENERATE_HAS_MEMBER(reflectable);
 //tagged json (need to deal with some sort of work buffer or abstract class + allocation mechanism
