@@ -781,7 +781,6 @@ struct DeserializeArrayHandlerReaderHandler : public BaseReaderHandler
   auto StartObjectImpl(std::unique_ptr<BaseReaderHandler> && result, long) -> decltype(std::move(std::declval<std::unique_ptr<BaseReaderHandler>>()))
   {
     throw std::runtime_error((boost::format("DeserializeArrayHandlerReaderHandler: failed to start object")).str());
-    return std::move(result);
   }
 
 
